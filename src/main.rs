@@ -42,27 +42,37 @@ fn main() {
         return;
     }
 
-    println!("Path : {:?}\nExt  : {}", folder_path, ext);
-
     let data = recurse(&ext, folder_path, Vec::with_capacity(1000));
 
     let mut total  =  0;
     let mut mapping = HashMap::new();
-    let re = Regex::new(r"\b(unsafe)\b").unwrap(); // TODO ignore unsafe in comments with both '//' and '///'
+    let match_re = Regex::new(r"\b(unsafe)\b").unwrap();
+    let comment_re = Regex::new(r"\s*//.*").unwrap();
 
     for path in data.iter() {
-        if let Ok(file) = fs::read_to_string(path) {
-            let file_total = re.captures_iter(&file).count();
+        if let Ok(file_str) = fs::read_to_string(path) {
+            // Remove all comments before matching
+            let no_comments = comment_re.replace_all(&file_str, "");
             if let Some(str) = path.to_str() {
+                let file_total = match_re.captures_iter(&no_comments).count();
                 mapping.insert(str.to_string(), file_total);
                 total += file_total;
             }
         }
     }
 
-    println!("\nTotal {}", total);
+    let mut sorted = mapping
+        .into_iter()
+        .collect::<Vec<(String, usize)>>();
+    sorted.sort_by(|lhs, rhs| lhs.1.cmp(&rhs.1));
 
-    for (key, val) in mapping.iter() {
-        println!("{} : {}", key, val);
+    for pair in sorted.iter() {
+        println!("{:>5} : {}", pair.1, pair.0);
     }
+
+    println!();
+    println!("Path          : {:?}", folder_path);
+    println!("Ext           : {}", ext);
+    println!("Total Files   : {:>5}", sorted.len());
+    println!("Total matches : {:>5}", total);
 }
